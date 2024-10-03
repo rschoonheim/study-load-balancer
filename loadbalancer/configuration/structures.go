@@ -4,8 +4,19 @@ type Configuration struct {
 	// Filesystem - filesystem configurations
 	Filesystem Filesystem `yaml:"filesystem"`
 
+	// Interfaces - network interfaces configurations
+	Interfaces []Interface `yaml:"interfaces"`
+
 	// Listeners - listeners configurations
 	Listeners []Listener `yaml:"listeners"`
+}
+
+type Interface struct {
+	// Name - interface name
+	Name string `yaml:"name"`
+
+	// IP - interface IP address
+	Ip string `yaml:"ip"`
 }
 
 type Filesystem struct {
@@ -25,14 +36,14 @@ type Listener struct {
 	// Name - listener name
 	Name string `yaml:"name"`
 
+	// Interface - name of the interface to listen on
+	Interface string `yaml:"interface"`
+
 	// Socket - listener socket
 	Socket Socket `yaml:"socket"`
 }
 
 type Socket struct {
-	// Address - socket address
-	Address string `yaml:"address"`
-
 	// Port - socket port
 	Port string `yaml:"port"`
 

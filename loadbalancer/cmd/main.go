@@ -3,6 +3,7 @@ package main
 import (
 	"gopkg.in/yaml.v2"
 	configuration2 "load-balancer/configuration"
+	"load-balancer/linux"
 	"log/slog"
 	"net"
 	"os"
@@ -10,7 +11,7 @@ import (
 )
 
 var configuration configuration2.Configuration
-var wg = sync.WaitGroup{}
+var waitGroup sync.WaitGroup = sync.WaitGroup{}
 
 func init() {
 
@@ -46,68 +47,96 @@ func init() {
 	}
 }
 
-// handleConnection - go routine to handle a connection
-func handleConnection(connection net.Conn) {
-	defer connection.Close()
+func socketListenerStart(listener configuration2.Listener) error {
 
-	slog.Info("Handling connection.", "address", connection.RemoteAddr().String())
-
-	// Read data from the connection
+	// Find address of the interface
 	//
-	buffer := make([]byte, 1024)
-	_, err := connection.Read(buffer)
-	if err != nil {
-		slog.Error("Failed to read data from connection.", "address", connection.RemoteAddr().String(), "error", err.Error())
-		return
+	var address string
+	for _, networkInterface := range configuration.Interfaces {
+		if networkInterface.Name == listener.Interface {
+			address = networkInterface.Ip
+			break
+		}
 	}
 
-	// Respond to the connection with http 1.1 200 OK (Hello world)
+	if address == "" {
+		slog.Error("Interface not found.", "name", listener.Interface)
+		return nil
+	}
+
+	slog.Info("Starting socket listener.", "name", listener.Name, "address", address, "port", listener.Socket.Port, "protocol", listener.Socket.Protocol)
+
+	// Start the socket listener
 	//
-	_, err = connection.Write([]byte("HTTP/1.1 200 OK\r\nContent-Length: 11\r\n\r\nHello world"))
+	listner, err := net.Listen(listener.Socket.Protocol, address+":"+listener.Socket.Port)
 	if err != nil {
-		slog.Error("Failed to write data to connection.", "address", connection.RemoteAddr().String(), "error", err.Error())
-		return
-	}
-}
-
-// listen - go routine to listen on a listener specified in the configuration
-func listen(listener configuration2.Listener) {
-	slog.Info("Starting listener.", "name", listener.Name, "address", listener.Socket.Address, "port", listener.Socket.Port, "protocol", listener.Socket.Protocol)
-
-	socket, err := net.Listen(listener.Socket.Protocol, listener.Socket.Address+":"+listener.Socket.Port)
-	if err != nil {
-		slog.Error("Failed to start listener.", "name", listener.Name, "error", err.Error())
-		return
+		return err
 	}
 
-	slog.Info("Listener started.", "name", listener.Name, "address", listener.Socket.Address, "port", listener.Socket.Port, "protocol", listener.Socket.Protocol)
+	slog.Info("Socket listener started.", "name", listener.Name, "address", address, "port", listener.Socket.Port, "protocol", listener.Socket.Protocol)
 
-	// Wait for incoming connections
+	// Accept incoming connections
 	//
 	for {
-		connection, err := socket.Accept()
+		conn, err := listner.Accept()
 		if err != nil {
-			slog.Error("Failed to accept connection.", "name", listener.Name, "error", err.Error())
-			continue
+			return err
 		}
 
-		wg.Add(1)
-		go handleConnection(connection)
-	}
+		// Handle the connection
+		//
+		go func(conn net.Conn) {
+			defer conn.Close()
 
-	wg.Done()
+			// Read the request
+			//
+			buffer := make([]byte, 1024)
+			_, err := conn.Read(buffer)
+			if err != nil {
+				return
+			}
+
+			// Send the response
+			//
+			_, err = conn.Write([]byte("Hello, World!"))
+			if err != nil {
+				return
+			}
+		}(conn)
+	}
 }
 
 func main() {
 
-	// Start listening on the defined listeners
+	// Create network interfaces for the load balancer
 	//
-	for _, listener := range configuration.Listeners {
-		wg.Add(1)
-		go listen(listener)
+	for _, networkInterface := range configuration.Interfaces {
+		err := linux.NetworkInterfaceCreate(networkInterface.Name, networkInterface.Ip)
+		if err != nil {
+			println(err.Error())
+			os.Exit(1)
+		}
+
+		slog.Info("Network interface created.", "name", networkInterface.Name, "ip", networkInterface.Ip)
 	}
 
-	// Wait for all listeners to finish
+	// Start socket listeners for the load balancer
 	//
-	wg.Wait()
+	for _, listener := range configuration.Listeners {
+		waitGroup.Add(1)
+
+		go func(listener configuration2.Listener) {
+			defer waitGroup.Done()
+
+			err := socketListenerStart(listener)
+			if err != nil {
+				println(err.Error())
+				os.Exit(1)
+			}
+		}(listener)
+	}
+
+	// Wait for the socket listeners to finish
+	//
+	waitGroup.Wait()
 }
