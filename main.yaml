@@ -1,0 +1,4 @@
+filesystem:
+  configurations:
+    path: /programming/skills/load-balancer/conf.d
+    rescan: 10s

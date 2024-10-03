@@ -1,0 +1,15 @@
+services:
+
+  loadbalancer:
+    build:
+      context: loadbalancer
+      dockerfile: Dockerfile
+    ports:
+      - "80:80"
+      - "443:443"
+      - "8080:8080"
+    environment:
+      - MAIN_CONFIGURATION=/etc/loadbalancer/main.yaml
+    volumes:
+      - ./main.yaml:/etc/loadbalancer/main.yaml
+      - ./config:/etc/loadbalancer
