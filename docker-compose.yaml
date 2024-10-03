@@ -12,4 +12,4 @@ services:
       - MAIN_CONFIGURATION=/etc/loadbalancer/main.yaml
     volumes:
       - ./main.yaml:/etc/loadbalancer/main.yaml
-      - ./config:/etc/loadbalancer
+      - ./config:/programming/skills/load-balancer/config

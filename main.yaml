@@ -1,4 +1,33 @@
+# Filesystem Configurations
+# --------------------------------
+# This part of the configuration contains
+# instructions on how to read the configuration
+# from the host's filesystem.
+#
 filesystem:
   configurations:
-    path: /programming/skills/load-balancer/conf.d
+    path: /programming/skills/load-balancer/config
     rescan: 10s
+# Listeners
+# --------------------------------
+# This part of the configuration contains information
+# about how the load balancer should listen for incoming
+# connections.
+#
+listeners:
+  - name: HTTP
+    socket:
+      address: "127.0.0.1"
+      port: 80
+      protocol: tcp
+  - name: HTTPS
+    socket:
+      address: "127.0.0.1"
+      port: 443
+      protocol: tcp
+  - name: Dashboard
+    socket:
+      address: "127.0.0.1"
+      socket:
+        port: 8080
+        protocol: tcp
